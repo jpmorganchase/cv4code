@@ -1,0 +1,149 @@
+default: &DEFAULT
+  # global settings
+  name: "cv4code"
+  optimiser: "AdamW"
+  epochs: 1
+  batch_size: 32
+  weight_decay: 1.0e-4
+  seed: 0
+  gradient_max_norm: 1.0
+  sequence_padding: false # only useful when we train sequence model
+  sequence_max_length: -1 # -1 if not limited
+  sequence_padding_value: 32
+  codenet_keep_languages: null #if specified, keep only the specified languages
+  image_size: [[112, 112], [112, 112], 100, false, 'interleave']
+  skip_from_checkpoints: []
+  learnable_multitask_weights: true
+
+  lr_scheduler:
+    weight_decay: 1.0e-4
+    strategy: "CosineAnnealingLRScheduler"
+    step_size_in_epoch_base: True
+    epoch_stopping_tolerance: 0
+    config:
+      base_lr: 1.0e-3
+      warmup_steps: 5
+
+  dataset_name: "codenet"
+  model: 
+    backbone: 'resnet50'
+    input_embedding_dim: [129, 3]
+    bottleneck: 512
+    projection: null
+
+  metric_selection:
+    name : 'Accuracy_problem_id'
+    min_max : 'max'
+
+  # user needs to ensure validity of the labels
+  # class [OTHERS] is special for collecting every other unspecified classes if used
+  tasks: 
+    problem_id:
+      classes: 'FROM_FILE'
+      loss: 'AdditiveAngularMargin'
+      weight: 1.0
+      branch_weights: null
+      loss_config:
+        scale : 30
+        margin: 0.2
+    
+  extra_test_metrics:
+    - ['problem_id', 'Accuracy', {'top_k': 5}]
+
+  train_transform_ops: [["PrintableASCIIOnly", true]]
+  val_transform_ops: [["PrintableASCIIOnly", true]]
+
+############################################
+## token transformer basleine experiments ##
+############################################
+a-transformer:
+  <<: *DEFAULT
+  image_size: null
+  sequence_padding: true # only useful when we train sequence model
+  sequence_padding_value: '<pad>'
+  sequence_max_length: 512
+  model:
+    backbone: 'TOKEN_TRANSFORMER'
+    input_embedding_dim: [29659, 128]
+    sequence_length: 512
+    embed_dim: 128
+    mlp_dim: 512
+    heads: 4
+    depth: 12
+  train_transform_ops:
+    - ["TokenSequence", null]
+  val_transform_ops:
+    - ["TokenSequence", null]
+
+###########################
+##### CNN experiments #####
+###########################
+resnet:
+  <<: *DEFAULT
+  image_size: [[96, 96], [96, 96], 100, false, 'interleave']
+  model:
+    backbone: 'CUSTOM_RESNET'
+    input_embedding_dim: [96]
+    res_init_out_channels: 16
+    res_init_maxpool: true
+    res_init_strides: [2, 2]
+    res_init_kernel: [7, 7]
+    res_global_pool: ['max', [1]]
+    res_blocks: [[64, 2, 2], [128, 2, 2], [256, 2, 1]]
+    bottleneck: 128
+    linear_bottleneck: false
+    projection: null
+
+###########################
+##### ViT experiments #####
+###########################
+vit:
+  <<: *DEFAULT
+  image_size: [[96, 96], [96, 96], 100, false, 'interleave']
+  test_image_size: [[96, 96], [96, 96], 100, false, 'interleave']
+  model:
+    backbone: 'CUSTOM_VIT'
+    variant: 'ViT'
+    input_embedding_dim: [96]
+    input_size: !!python/tuple [96, 96]
+    patch_size: 8
+    embed_dim: 128
+    mlp_dim: 512
+    heads: 4
+    depth: 8
+
+vit_fsd:
+  <<: *DEFAULT
+  image_size: [[96, 96], [96, 96], 100, false, 'interleave']
+  test_image_size: [[96, 96], [96, 96], 100, false, 'interleave']
+  model:
+    backbone: 'CUSTOM_VIT'
+    variant: 'ViT_fsd'
+    input_embedding_dim: [96, 32]
+    input_size: !!python/tuple [96, 96]
+    patch_size: 8
+    embed_dim: 128
+    mlp_dim: 512
+    heads: 4
+    depth: 12
+
+conv_vit:
+  <<: *DEFAULT
+  image_size: [[12, 12], [96, 96], 95, false, 'interleave']
+  test_image_size: [[96, 96], [96, 96], 100, false, 'interleave']
+  model:
+    backbone: 'CUSTOM_VIT'
+    variant: 'ConvViT'
+    input_embedding_dim: [96]
+    input_size: !!python/tuple [96, 96]
+    embed_dim: 128
+    mlp_dim: 512
+    heads: 4
+    depth: 8
+    n_conv_layers: 3
+    kernel_size: 3
+    stride: 1
+    pooling_kernel_size: 2
+    pooling_stride: 2
+    positional_embedding: 'sine'
+    token_padding: 169
