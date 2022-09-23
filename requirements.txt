@@ -8,5 +8,5 @@ timm==0.4.12
 torchtext==0.12.0
 einops==0.4.0
 vit-pytorch==0.26.5
-protobuf==3.20.0
+protobuf==3.20.2
 git+https://github.com/ildoonet/pytorch-gradual-warmup-lr.git
